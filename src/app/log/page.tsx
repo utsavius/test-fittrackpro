@@ -1,18 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Plus, X, Check, Dumbbell, History, Save } from 'lucide-react';
 import { Exercise, Set, WorkoutSession } from '@/lib/types';
 import exercisesData from '@/data/exercises.json';
+import { saveSession } from '@/lib/storage';
 
-export default function LogWorkout() {
+function LogWorkoutContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
   const [session, setSession] = useState<Partial<WorkoutSession>>({
-    name: 'Morning Session',
+    name: searchParams.get('template') || 'New Session',
     exercises: [],
     date: new Date().toISOString()
   });
 
   const [isAddingExercise, setIsAddingExercise] = useState(false);
+
+  useEffect(() => {
+    const focus = searchParams.get('focus');
+    if (focus && session.exercises?.length === 0) {
+      // Pre-fill with exercises that match the focus area
+      const recommended = exercisesData.filter(e => 
+        e.primaryMuscles.some(m => focus.toLowerCase().includes(m.toLowerCase()))
+      ).slice(0, 4);
+
+      setSession(prev => ({
+        ...prev,
+        exercises: recommended.map(e => ({
+          exerciseId: e.id,
+          sets: [{ reps: 10, weight: 0, completed: false, type: 'Working' }]
+        }))
+      }));
+    }
+  }, [searchParams]);
 
   const addExercise = (exercise: Exercise) => {
     setSession(prev => ({
@@ -43,20 +66,31 @@ export default function LogWorkout() {
     setSession({ ...session, exercises: newExercises });
   };
 
-  const saveSession = () => {
-    const history = JSON.parse(localStorage.getItem('fittrack_history') || '[]');
-    localStorage.setItem('fittrack_history', JSON.stringify([...history, session]));
-    alert('Workout Saved! Check the dashboard (coming soon).');
-    window.location.href = '/';
+  const handleSave = () => {
+    if (!session.exercises || session.exercises.length === 0) {
+        alert('Please add at least one exercise.');
+        return;
+    }
+    
+    const finalSession: WorkoutSession = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: session.name || 'Strength Session',
+      date: session.date || new Date().toISOString(),
+      exercises: session.exercises as any,
+      durationMinutes: 45 // Estimate
+    };
+    
+    saveSession(finalSession);
+    router.push('/dashboard');
   };
 
   return (
     <div className="log-container animate-slide-up">
       <header className="log-header">
         <h1 className="text-gradient">Log Workout</h1>
-        <button className="save-btn" onClick={saveSession}>
+        <button className="save-btn" onClick={handleSave}>
           <Save size={18} />
-          <span>Finish</span>
+          <span>Save</span>
         </button>
       </header>
 
@@ -68,7 +102,7 @@ export default function LogWorkout() {
           className="session-name-input"
         />
         <div className="session-meta">
-          <CalendarIcon /> {new Date().toLocaleDateString()}
+          <History size={14} /> {new Date().toLocaleDateString()}
         </div>
       </div>
 
@@ -196,6 +230,10 @@ export default function LogWorkout() {
   );
 }
 
-function CalendarIcon() {
-  return <History size={14} />;
+export default function LogWorkout() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LogWorkoutContent />
+    </Suspense>
+  );
 }

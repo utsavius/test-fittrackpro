@@ -2,28 +2,45 @@
 
 import { useState, useEffect } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, LineChart, Line } from 'recharts';
-import { Calendar, TrendingUp, Award, Zap } from 'lucide-react';
-
-const MOCK_CHART_DATA = [
-  { date: 'Mar 21', volume: 4500, bench1rm: 185 },
-  { date: 'Mar 22', volume: 5200, bench1rm: 185 },
-  { date: 'Mar 23', volume: 4800, bench1rm: 190 },
-  { date: 'Mar 24', volume: 0, bench1rm: 190 }, // rest day
-  { date: 'Mar 25', volume: 6100, bench1rm: 195 },
-  { date: 'Mar 26', volume: 5500, bench1rm: 195 },
-  { date: 'Mar 27', volume: 5800, bench1rm: 200 },
-];
-
-const MUSCLE_DATA = [
-  { name: 'Chest', score: 0.8 },
-  { name: 'Back', score: 0.1 },
-  { name: 'Legs', score: 0.6 },
-  { name: 'Shoulders', score: 0.9 },
-  { name: 'Arms', score: 0.4 },
-];
+import { TrendingUp, Zap } from 'lucide-react';
+import { getSessions } from '@/lib/storage';
+import { calculateMuscleFreshness } from '@/lib/workoutEngine';
+import exercises from '@/data/exercises.json';
+import { WorkoutSession } from '@/lib/types';
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('Volume');
+  const [sessions, setSessions] = useState<WorkoutSession[]>([]);
+
+  useEffect(() => {
+    setSessions(getSessions());
+  }, []);
+
+  // Process Volume Data for the last 7 sessions
+  const chartData = sessions.length > 0 ? sessions.slice(-7).map(s => {
+    const volume = s.exercises.reduce((sum, ex) => 
+        sum + ex.sets.reduce((sSum, set) => sSum + (set.weight * set.reps), 0), 0);
+    return {
+      date: new Date(s.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      volume,
+      bench1rm: 0 // In a full app, we'd calculate this for a specific tracked lift
+    };
+  }) : [{ date: 'No Data', volume: 0, bench1rm: 0 }];
+
+  const muscleFreshness = calculateMuscleFreshness(sessions, exercises as any);
+  
+  // Group muscles for a cleaner dashboard heatmap
+  const groupedMuscles = [
+    { name: 'Chest', score: muscleFreshness['Chest'] },
+    { name: 'Back', score: muscleFreshness['Back'] },
+    { name: 'Legs', score: (muscleFreshness['Quads'] + muscleFreshness['Glutes'] + muscleFreshness['Hamstrings']) / 3 },
+    { name: 'Shoulders', score: muscleFreshness['Shoulders'] },
+    { name: 'Arms', score: (muscleFreshness['Biceps'] + muscleFreshness['Triceps']) / 2 },
+  ];
+
+  const totalVolume = sessions.reduce((sum, s) => 
+    sum + s.exercises.reduce((eSum, ex) => 
+      eSum + ex.sets.reduce((sSum, set) => sSum + (set.weight * set.reps), 0), 0), 0);
 
   return (
     <div className="dashboard-container animate-slide-up">
@@ -35,12 +52,26 @@ export default function Dashboard() {
       <div className="overview-row">
          <div className="stat-pill card">
             <Zap size={14} fill="var(--accent)" color="var(--accent)" />
-            <span>4wk Volume +12%</span>
+            <span>Total Volume: {Math.round(totalVolume).toLocaleString()} lbs</span>
          </div>
-         <div className="stat-pill card">
-            <TrendingUp size={14} color="var(--success)" />
-            <span>New 1RM!</span>
-         </div>
+         {sessions.length > 0 ? (
+           <div className="stat-pill card">
+              <TrendingUp size={14} color="var(--success)" />
+              <span>{sessions.length} Sessions Logged</span>
+           </div>
+         ) : (
+           <button 
+             className="stat-pill card" 
+             style={{ cursor: 'pointer', background: 'var(--accent-muted)' }} 
+             onClick={() => {
+                import('@/lib/storage').then(m => m.seedSampleData());
+                window.location.reload();
+             }}
+           >
+              <Zap size={14} color="var(--accent)" />
+              <span>Load Sample History</span>
+           </button>
+         )}
       </div>
 
       <section className="chart-section card">
@@ -51,44 +82,27 @@ export default function Dashboard() {
                 className={activeTab === 'Volume' ? 'active' : ''} 
                 onClick={() => setActiveTab('Volume')}
               >Volume</button>
-              <button 
-                className={activeTab === 'Strength' ? 'active' : ''} 
-                onClick={() => setActiveTab('Strength')}
-              >1RM</button>
            </div>
         </div>
 
         <div className="chart-wrapper">
           <ResponsiveContainer width="100%" height={240}>
-            {activeTab === 'Volume' ? (
-              <AreaChart data={MOCK_CHART_DATA}>
-                <defs>
-                  <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#D4FF00" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#D4FF00" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                <XAxis dataKey="date" stroke="#888" fontSize={10} axisLine={false} tickLine={false} />
-                <YAxis stroke="#888" fontSize={10} axisLine={false} tickLine={false} tickFormatter={(val) => `${val/1000}k`} />
-                <Tooltip 
-                  contentStyle={{ background: '#1A1A1A', border: '1px solid #333', borderRadius: '12px' }}
-                  itemStyle={{ color: '#D4FF00', fontWeight: 'bold' }}
-                />
-                <Area type="monotone" dataKey="volume" stroke="#D4FF00" strokeWidth={3} fillOpacity={1} fill="url(#colorVol)" />
-              </AreaChart>
-            ) : (
-              <LineChart data={MOCK_CHART_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                <XAxis dataKey="date" stroke="#888" fontSize={10} axisLine={false} tickLine={false} />
-                <YAxis stroke="#888" fontSize={10} axisLine={false} tickLine={false} />
-                <Tooltip 
-                  contentStyle={{ background: '#1A1A1A', border: '1px solid #333', borderRadius: '12px' }}
-                  itemStyle={{ color: '#D4FF00', fontWeight: 'bold' }}
-                />
-                <Line type="monotone" dataKey="bench1rm" stroke="#D4FF00" strokeWidth={3} dot={{ fill: '#D4FF00', r: 4 }} />
-              </LineChart>
-            )}
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#D4FF00" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#D4FF00" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+              <XAxis dataKey="date" stroke="#888" fontSize={10} axisLine={false} tickLine={false} />
+              <YAxis stroke="#888" fontSize={10} axisLine={false} tickLine={false} tickFormatter={(val) => val > 1000 ? `${(val/1000).toFixed(1)}k` : val} />
+              <Tooltip 
+                contentStyle={{ background: '#1A1A1A', border: '1px solid #333', borderRadius: '12px' }}
+                itemStyle={{ color: '#D4FF00', fontWeight: 'bold' }}
+              />
+              <Area type="monotone" dataKey="volume" stroke="#D4FF00" strokeWidth={3} fillOpacity={1} fill="url(#colorVol)" />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </section>
@@ -96,7 +110,7 @@ export default function Dashboard() {
       <section className="heatmap-section animate-slide-up" style={{ animationDelay: '0.2s' }}>
         <h3 style={{ marginBottom: '16px' }}>Recovery Heatmap</h3>
         <div className="heatmap-grid">
-          {MUSCLE_DATA.map(m => (
+          {groupedMuscles.map(m => (
             <div key={m.name} className="muscle-item">
               <span className="muscle-name">{m.name}</span>
               <div className="bar-bg">
@@ -106,6 +120,9 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
+        {sessions.length === 0 && (
+          <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '0.85rem' }}>Log a workout to see your recovery heatmap.</p>
+        )}
       </section>
 
       <style jsx>{`
