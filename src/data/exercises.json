@@ -1,0 +1,52 @@
+[
+  {
+    "id": "bench-press",
+    "name": "Barbell Bench Press",
+    "primaryMuscles": ["Chest"],
+    "secondaryMuscles": ["Triceps", "Shoulders"],
+    "equipment": "Barbell",
+    "category": "Strength",
+    "instructions": ["Lie on bench", "Grip bar", "Lower to chest", "Press up"],
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "squat",
+    "name": "Barbell Squat",
+    "primaryMuscles": ["Quads", "Glutes"],
+    "secondaryMuscles": ["Hamstrings", "Back"],
+    "equipment": "Barbell",
+    "category": "Strength",
+    "instructions": ["Bar on traps", "Feet shoulder width", "Squat down", "Stand up"],
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "deadlift",
+    "name": "Conventional Deadlift",
+    "primaryMuscles": ["Back", "Hamstrings", "Glutes"],
+    "secondaryMuscles": ["Quads", "Forearms"],
+    "equipment": "Barbell",
+    "category": "Strength",
+    "instructions": ["Bar over midfoot", "Grip bar", "Chest up", "Pull to hip"],
+    "difficulty": "Advanced"
+  },
+  {
+    "id": "pull-up",
+    "name": "Pull-Up",
+    "primaryMuscles": ["Back", "Biceps"],
+    "secondaryMuscles": ["Shoulders"],
+    "equipment": "Bodyweight",
+    "category": "Strength",
+    "instructions": ["Hang from bar", "Pull chin over bar", "Lower slowly"],
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "shoulder-press",
+    "name": "Dumbbell Shoulder Press",
+    "primaryMuscles": ["Shoulders"],
+    "secondaryMuscles": ["Triceps"],
+    "equipment": "Dumbbell",
+    "category": "Strength",
+    "instructions": ["Sit upright", "Press dumbbells up", "Lower to ears"],
+    "difficulty": "Beginner"
+  }
+]
